@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+
+use Cwd;
+use Getopt::Long;
+
+my $family = "all";
+my $core = "all";
+my $group = "Misc";
+my $name = "unknown";
+
+GetOptions( "family=s" => \$family,
+            "core=s"   => \$core,
+            "group=s"  => \$group);
+
+my $pkgName = getcwd();
+if ($pkgName =~ /\/([^\/]+)$/) {
+    $pkgName = $1;
+}
+
+print $pkgName . "\n";
+print "Group = $group Family = $family Core = $core\n";
+
+if ($name eq "unknown") {
+    $name = "lib" . lc($pkgName);
+    if ($core ne "all") {
+        $name .= "-$core";
+    }
+}
+
+print "$name\n";
+
+my @files = `find * -type f`;
+
+mkdir("debian");
+mkdir("debian/source");
+mkdir("debian/hooks");
+
+open(O, ">debian/control");
+print O "Source: $name\n";
+print O "Section: libraries\n";
+print O "Priority: extra\n";
+print O "XBSC-Group: $group\n";
+if ($family ne "all") {
+    print O "XBSC-Family: $family\n";
+}
+print O "Maintainer: Matt Jenkins <matt\@majenko.co.uk>\n";
+print O "Build-Depends: debhelper (>= 8.0.0)\n";
+print O "Standards-Version: 3.9.4\n";
+print O "\n";
+print O "Package: $name\n";
+print O "Architecture: all\n";
+if ($core ne "all") {
+    print O "Depends: $core\n";
+}
+print O "Description: $pkgName library";
+if ($core ne "all") {
+    print O " for $core";
+}
+print O "\n\n";
+close(O);
+
+system("cp /usr/share/dpkg-hooks/boot-make-changelog-from-git debian/hooks/boot");
+
+open(O, ">debian/rules");
+print O "#!/usr/bin/make -f\n";
+print O "\n";
+print O "\%:\n";
+print O "\tdh \$\@\n";
+close(O);
+
+open(O, ">debian/source/format");
+print O "3.0 (native)\n";
+close(O);
+
+open(O, ">debian/compat");
+print O "8\n";
+close(O);
+
+my $root = "libraries/$group/$pkgName";
+if ($core ne "all") {
+    $root = "libraries/$group/$core/$pkgName";
+}
+my $doc = "usr/share/doc/$name";
+
+open (O, ">debian/$name.install");
+foreach my $f (@files) {
+    chomp($f);
+    my $tgt = $root;
+    if (substr($f, 0, 1) eq ".") {
+        next;
+    }
+    if ($f =~ /^debian\//) {
+        next;
+    }
+    my $dst = "";
+    if ($f =~ /^(.*)\/([^\/]+)$/) {
+        $dst = $1;
+    }
+
+    if ($f =~ /\.md$/) {
+        $tgt = $doc;
+    }
+    if ($f =~ /^LICENSE/) {
+        $tgt = $doc;
+    }
+    if ($f =~ /^README/) {
+        $tgt = $doc;
+    }
+    if ($f =~ /^COPY/) {
+        $tgt = $doc;
+    }
+    if ($f =~ /^INSTALL/) {
+        $tgt = $doc;
+    }
+    print O "$f $tgt/$dst\n";
+}
+close(O);
+
+open(O, ">debian/.gitignore");
+print O "changelog\n";
+close(O);
