@@ -45,6 +45,10 @@ use Dpkg::IPC;
 
 textdomain('dpkg-dev');
 
+sub g_ {
+    _g($@);
+}
+
 sub showversion {
     printf g_("Debian %s version %s.\n"), $Dpkg::PROGNAME, $Dpkg::PROGVERSION;
 
